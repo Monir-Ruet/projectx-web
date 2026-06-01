@@ -1,5 +1,6 @@
-import { AuthGuard } from "@/components/auth-guard";
-import { SessionProvider } from "next-auth/react";
+import { AppSidebar } from "@/components/sidebar/app-sidebar";
+import { SiteHeader } from "@/components/sidebar/site-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default function RootLayout({
     children,
@@ -7,8 +8,14 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <>
-            {children}
-        </>
+        <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset>
+                <SiteHeader />
+                <div className="p-4">
+                    {children}
+                </div>
+            </SidebarInset>
+        </SidebarProvider>
     );
 }

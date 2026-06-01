@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
-import { is_authenticated, me, refresh, signInWithCredentials, signInWithProvider } from "@/services/account"
+import { is_authenticated, me, refresh, signInWithCredentials, signInWithProvider, verifyPassKey } from "@/services/account"
 import GitHub from "next-auth/providers/github"
 
 export const authConfig: NextAuthConfig = {
@@ -23,14 +23,21 @@ export const authConfig: NextAuthConfig = {
             credentials: {
                 email: {},
                 password: {},
+                passkeyToken: {},
             },
 
             async authorize(credentials) {
-                const request = credentials as { email: string; password: string }
-                const accessTokenResponse = await signInWithCredentials({
-                    email: request.email,
-                    password: request.password,
-                })
+                let accessTokenResponse;
+                const request = credentials as { email: string; password: string, passkeyToken?: string }
+                if (request.passkeyToken) {
+                    accessTokenResponse = await verifyPassKey(request.passkeyToken);
+                } else {
+                    accessTokenResponse = await signInWithCredentials({
+                        email: request.email,
+                        password: request.password,
+                    })
+                }
+
                 if (!accessTokenResponse) return null;
 
                 const user = await me(accessTokenResponse.access_token)
@@ -96,7 +103,7 @@ export const authConfig: NextAuthConfig = {
             if (authenticated)
                 return token;
 
-            const refreshed = await refresh(token.refreshToken as string)
+            const refreshed = await refresh(token.refreshToken)
             if (!refreshed) {
                 return {
                     ...token,
@@ -127,9 +134,9 @@ export const authConfig: NextAuthConfig = {
 
         async session({ session, token }) {
             session.user.id = token.id as string
-            session.user.role = token.role as string
-            session.user.accessToken = token.accessToken as string
-            session.user.refreshToken = token.refreshToken as string
+            session.user.role = token.role
+            session.user.accessToken = token.accessToken
+            session.user.refreshToken = token.refreshToken
             session.error = token.error as string
             return session
         },
