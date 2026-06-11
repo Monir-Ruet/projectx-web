@@ -35,3 +35,20 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## WebAuthn security notes
+
+The app exposes WebAuthn endpoints under `/api/auth/webauthn/*` for passkey registration and authentication.
+
+- `POST /api/auth/webauthn/register/options` and `POST /api/auth/webauthn/login/options` generate options, a signed challenge token, and a CSRF token.
+- `POST /api/auth/webauthn/register/verify` and `POST /api/auth/webauthn/login/verify` require:
+  - `x-webauthn-csrf` header with the CSRF token from the corresponding options response
+  - challenge token validation (purpose, origin, expiry, CSRF binding, and user binding for registration)
+  - WebAuthn origin/RP ID verification via `@simplewebauthn/server`
+
+Challenge/session pattern:
+
+- Challenges are generated with `crypto.randomBytes(...)`
+- Challenge state is stored in a short-lived signed JWT (`WEBAUTHN_CHALLENGE_SECRET`)
+- Passkey material and counters are persisted via existing account service methods (`save_passkey`, `find_user_passkey`) and counters are rotated after successful assertions
+- Optional tuning vars: `WEBAUTHN_RP_NAME`, `WEBAUTHN_CHALLENGE_AUDIENCE`, `WEBAUTHN_CHALLENGE_ISSUER`

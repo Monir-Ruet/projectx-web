@@ -2,20 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyRegistrationResponse } from '@simplewebauthn/server';
 import { save_passkey } from '@/services/account';
 import { auth } from '@/auth';
-import { verifyJwt } from '@/lib/jwt';
+import {
+    assertTrustedOrigin,
+    getRelyingPartyConfig,
+    requireCsrfHeader,
+    validateChallengeToken,
+} from '@/services/webauthn';
+import type { WebAuthnRegistrationVerifyRequest } from '@/types/webauthn';
 
 export async function POST(req: NextRequest) {
 
     try {
         const authUser = await auth();
-        const { attestationResponse, challengeToken } = await req.json();
-        const { challenge } = verifyJwt(challengeToken) as { challenge: string };
+        if (!authUser?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { expectedOrigin, rpID } = getRelyingPartyConfig(req);
+        assertTrustedOrigin(req, expectedOrigin);
+        const csrfToken = requireCsrfHeader(req);
+
+        const { attestationResponse, challengeToken } = await req.json() as WebAuthnRegistrationVerifyRequest;
+        const { challenge } = validateChallengeToken({
+            token: challengeToken,
+            expectedOrigin,
+            expectedPurpose: 'registration',
+            csrfToken,
+            expectedUserId: authUser.user.id,
+        });
 
         const verification = await verifyRegistrationResponse({
             response: attestationResponse,
             expectedChallenge: challenge,
-            expectedRPID: process.env.NEXTAUTH_URL?.replace('https://', '')?.replace('http://', '') || 'localhost',
-            expectedOrigin: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+            expectedRPID: rpID,
+            expectedOrigin,
         });
 
         const { verified, registrationInfo } = verification;
@@ -31,12 +51,13 @@ export async function POST(req: NextRequest) {
             counter,
             device_type: credentialDeviceType,
             backed_up: credentialBackedUp,
-            user_id: authUser?.user?.id,
+            user_id: authUser.user.id,
         });
 
         return NextResponse.json({ verified: is_success });
     }
-    catch {
-        return NextResponse.json({ verified: false, error: 'Verification failed' }, { status: 400 });
+    catch (error) {
+        console.error('WebAuthn register verify failed', error);
+        return NextResponse.json({ verified: false, error: 'Registration verification failed' }, { status: 400 });
     }
 }

@@ -7,18 +7,39 @@ import {
     save_passkey,
     signInPassKey,
 } from '@/services/account';
-import { verifyJwt } from '@/lib/jwt';
+import {
+    assertTrustedOrigin,
+    decodeUserHandle,
+    getRelyingPartyConfig,
+    requireCsrfHeader,
+    validateChallengeToken,
+} from '@/services/webauthn';
+import type { WebAuthnAuthenticationVerifyRequest } from '@/types/webauthn';
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
+        const { expectedOrigin, rpID } = getRelyingPartyConfig(req);
+        assertTrustedOrigin(req, expectedOrigin);
+        const csrfToken = requireCsrfHeader(req);
+        const body = await req.json() as WebAuthnAuthenticationVerifyRequest;
         const { assertionResponse, challengeToken } = body;
 
-        const user = await find_user_by_id(assertionResponse.response.userHandle);
+        const { challenge } = validateChallengeToken({
+            token: challengeToken,
+            expectedOrigin,
+            expectedPurpose: 'authentication',
+            csrfToken,
+        });
+
+        const userId = decodeUserHandle(assertionResponse.response.userHandle);
+        if (!userId) {
+            return NextResponse.json({ error: 'Invalid user handle' }, { status: 400 });
+        }
+
+        const user = await find_user_by_id(userId);
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
-        const { challenge } = verifyJwt(challengeToken) as { challenge: string };
 
         const passKey = await find_user_passkey(assertionResponse.id);
         if (!passKey) {
@@ -31,8 +52,8 @@ export async function POST(req: NextRequest) {
         const verification = await verifyAuthenticationResponse({
             response: assertionResponse,
             expectedChallenge: challenge,
-            expectedRPID: process.env.NEXTAUTH_URL?.replace('https://', '').replace('http://', '') || 'localhost',
-            expectedOrigin: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+            expectedRPID: rpID,
+            expectedOrigin,
             authenticator: {
                 credentialPublicKey: Buffer.from(passKey.public_key, 'base64url'),
                 credentialID: Buffer.from(passKey.credential_id, 'base64url'),
@@ -74,7 +95,8 @@ export async function POST(req: NextRequest) {
                 name: user.name,
             },
         });
-    } catch {
+    } catch (error) {
+        console.error('WebAuthn login verify failed', error);
         return NextResponse.json(
             { error: 'Failed to verify authentication' },
             { status: 500 }
