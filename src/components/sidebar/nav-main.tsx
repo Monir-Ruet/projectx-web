@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, type LucideIcon } from "lucide-react"
+import { BookOpen, Bot, ChevronRight, Frame, Home, PieChart, Settings2, SquareTerminal } from "lucide-react"
 
 import {
     Collapsible,
@@ -18,32 +18,133 @@ import {
     SidebarMenuSubButton,
     SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import Link from "next/link"
 
-export function NavMain({
-    items,
-}: Readonly<{
-    items: {
-        title: string
-        url: string
-        icon: LucideIcon
-        isActive?: boolean
-        items?: {
-            title: string
-            url: string
-        }[]
-    }[]
-}>) {
+const data = {
+    navMain: [
+        {
+            title: "Home",
+            url: "/",
+            icon: Home,
+            items: [
+            ],
+        },
+        {
+            title: "Playground",
+            url: "#",
+            icon: SquareTerminal,
+            items: [
+                {
+                    title: "History",
+                    url: "#",
+                },
+                {
+                    title: "Starred",
+                    url: "#",
+                },
+                {
+                    title: "Settings",
+                    url: "#",
+                },
+            ],
+        },
+        {
+            title: "Models",
+            url: "#",
+            icon: Bot,
+            items: [
+                {
+                    title: "Genesis",
+                    url: "#",
+                },
+                {
+                    title: "Explorer",
+                    url: "#",
+                },
+                {
+                    title: "Quantum",
+                    url: "#",
+                },
+            ],
+        },
+        {
+            title: "Documentation",
+            url: "#",
+            icon: BookOpen,
+            items: [
+                {
+                    title: "Introduction",
+                    url: "#",
+                },
+                {
+                    title: "Get Started",
+                    url: "#",
+                },
+                {
+                    title: "Tutorials",
+                    url: "#",
+                },
+                {
+                    title: "Changelog",
+                    url: "#",
+                },
+            ],
+        },
+        {
+            title: "Settings",
+            url: "#",
+            icon: Settings2,
+            items: [
+                {
+                    title: "General",
+                    url: "#",
+                },
+                {
+                    title: "Team",
+                    url: "#",
+                },
+                {
+                    title: "Billing",
+                    url: "#",
+                },
+                {
+                    title: "Limits",
+                    url: "#",
+                },
+            ],
+        },
+    ],
+    projects: [
+        {
+            name: "Design Engineering",
+            url: "#",
+            icon: Frame,
+        },
+        {
+            name: "Sales & Marketing",
+            url: "#",
+            icon: PieChart,
+        },
+        {
+            name: "Travel",
+            url: "#",
+            icon: Map,
+        },
+    ],
+}
+
+export function NavMain() {
     return (
         <SidebarGroup>
             <SidebarGroupLabel>Platform</SidebarGroupLabel>
             <SidebarMenu>
-                {items.map((item) => (
-                    <Collapsible key={item.title} defaultOpen={item.isActive}>
+                {data.navMain.map((item) => (
+                    <Collapsible key={item.title}>
                         <SidebarMenuItem>
-                            <SidebarMenuButton tooltip={item.title} render={<a href={item.url}>
+                            <SidebarMenuButton tooltip={item.title} render={<Link href={item.url}>
                                 <item.icon />
                                 <span>{item.title}</span>
-                            </a>}>
+                            </Link>}>
                             </SidebarMenuButton>
                             {item.items?.length ? (
                                 <>
@@ -72,7 +173,6 @@ export function NavMain({
                                 </>
                             ) : null}
                         </SidebarMenuItem>
-
                     </Collapsible>
                 ))}
             </SidebarMenu>

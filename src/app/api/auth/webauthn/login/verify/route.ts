@@ -7,7 +7,7 @@ import {
     save_passkey,
     signInPassKey,
 } from '@/services/account';
-import { signJwt, verifyJwt } from '@/lib/jwt';
+import { verifyJwt } from '@/lib/jwt';
 
 export async function POST(req: NextRequest) {
     try {

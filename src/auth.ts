@@ -7,6 +7,7 @@ import GitHub from "next-auth/providers/github"
 export const authConfig: NextAuthConfig = {
     pages: {
         signIn: "/signin",
+        error: "/signin",
     },
 
     debug: false,

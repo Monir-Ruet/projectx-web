@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarBadge, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation";
+import Link from "next/link"
 
 export function MenuActions() {
     const router = useRouter();
@@ -62,9 +63,11 @@ export function MenuActions() {
                             <>
                                 <DropdownMenuGroup>
                                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => router.push("/profile")}>
-                                        <UserIcon />
-                                        Profile
+                                    <DropdownMenuItem>
+                                        <Link href="/profile" className="flex items-center gap-2 w-full">
+                                            <UserIcon />
+                                            Profile
+                                        </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => router.push("/billing")}>
                                         <DollarSign />

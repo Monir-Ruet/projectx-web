@@ -5,6 +5,7 @@ import { ThemeWrapper } from "@/components/theme-wrapper";
 import { SessionProvider } from "next-auth/react";
 import { AuthGuard } from "@/components/auth-guard";
 import { Toaster } from "sonner";
+import ProgressLoader from "@/components/progress-loader";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -27,6 +28,7 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={`${geistSans.className} h-full antialiased text-sm`}>
+                <ProgressLoader />
                 <ThemeWrapper>
                     <SessionProvider>
                         <AuthGuard />
