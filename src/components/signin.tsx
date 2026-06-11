@@ -72,7 +72,10 @@ export function SignInForm({
             const assertionResponse = await startAuthentication(options.options);
             const verificationRes = await fetch('/api/auth/webauthn/login/verify', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-webauthn-csrf': options.csrfToken,
+                },
                 body: JSON.stringify({
                     assertionResponse,
                     challengeToken: options.challengeToken,

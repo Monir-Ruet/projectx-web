@@ -1,27 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
-import { signJwt } from '@/lib/jwt';
+import {
+    assertTrustedOrigin,
+    createChallengeToken,
+    generateChallenge,
+    generateCsrfToken,
+    getRelyingPartyConfig,
+    WEBAUTHN_CHALLENGE_TTL_SECONDS,
+} from '@/services/webauthn';
 
 export async function POST(req: NextRequest) {
     try {
-        const rpID = process.env.NODE_ENV === 'production' ? process.env.RP_ID || new URL(req.nextUrl.origin).hostname : 'localhost';
+        const { expectedOrigin, rpID } = getRelyingPartyConfig(req);
+        assertTrustedOrigin(req, expectedOrigin);
+        const challenge = generateChallenge();
+        const csrfToken = generateCsrfToken();
 
         const options = await generateAuthenticationOptions({
             rpID,
             userVerification: 'preferred',
-            allowCredentials: []
+            challenge,
+            timeout: WEBAUTHN_CHALLENGE_TTL_SECONDS * 1000,
+            allowCredentials: [],
         });
 
-        const challengeToken = signJwt({ challenge: options.challenge }, { expiresIn: '15s' });
+        const challengeToken = createChallengeToken({
+            challenge,
+            csrfToken,
+            origin: expectedOrigin,
+            purpose: 'authentication',
+        });
 
         return NextResponse.json({
             options,
             challengeToken,
+            csrfToken,
+            expiresIn: WEBAUTHN_CHALLENGE_TTL_SECONDS,
         });
     } catch {
         return NextResponse.json(
             { error: 'Failed to generate authentication options' },
-            { status: 500 }
+            { status: 400 }
         );
     }
 }

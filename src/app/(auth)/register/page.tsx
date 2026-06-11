@@ -24,7 +24,10 @@ export default function RegisterPage() {
 
             const verificationRes = await fetch('/api/auth/webauthn/register/verify', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-webauthn-csrf': registrationOptions.csrfToken,
+                },
                 body: JSON.stringify({
                     attestationResponse,
                     challengeToken: registrationOptions.challengeToken,
