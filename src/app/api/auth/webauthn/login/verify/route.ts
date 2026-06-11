@@ -95,10 +95,11 @@ export async function POST(req: NextRequest) {
                 name: user.name,
             },
         });
-    } catch {
+    } catch (error) {
+        console.error('WebAuthn login verify failed', error);
         return NextResponse.json(
             { error: 'Failed to verify authentication' },
-            { status: 400 }
+            { status: 500 }
         );
     }
 }

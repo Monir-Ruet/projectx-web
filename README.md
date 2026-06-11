@@ -49,5 +49,6 @@ The app exposes WebAuthn endpoints under `/api/auth/webauthn/*` for passkey regi
 Challenge/session pattern:
 
 - Challenges are generated with `crypto.randomBytes(...)`
-- Challenge state is stored in a short-lived signed JWT (`WEBAUTHN_CHALLENGE_SECRET`, fallback `JWT_SECRET`)
+- Challenge state is stored in a short-lived signed JWT (`WEBAUTHN_CHALLENGE_SECRET`)
 - Passkey material and counters are persisted via existing account service methods (`save_passkey`, `find_user_passkey`) and counters are rotated after successful assertions
+- Optional tuning vars: `WEBAUTHN_RP_NAME`, `WEBAUTHN_CHALLENGE_AUDIENCE`, `WEBAUTHN_CHALLENGE_ISSUER`

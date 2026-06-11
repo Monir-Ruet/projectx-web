@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ verified: is_success });
     }
-    catch {
+    catch (error) {
+        console.error('WebAuthn register verify failed', error);
         return NextResponse.json({ verified: false, error: 'Registration verification failed' }, { status: 400 });
     }
 }

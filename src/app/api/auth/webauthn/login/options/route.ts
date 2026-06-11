@@ -37,10 +37,11 @@ export async function POST(req: NextRequest) {
             csrfToken,
             expiresIn: WEBAUTHN_CHALLENGE_TTL_SECONDS,
         });
-    } catch {
+    } catch (error) {
+        console.error('WebAuthn login options failed', error);
         return NextResponse.json(
             { error: 'Failed to generate authentication options' },
-            { status: 400 }
+            { status: 500 }
         );
     }
 }

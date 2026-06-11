@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         const challenge = generateChallenge();
         const csrfToken = generateCsrfToken();
         const options = await generateRegistrationOptions({
-            rpName: 'ProjectX',
+            rpName: process.env.WEBAUTHN_RP_NAME || 'ProjectX',
             rpID,
             userID: authUser.user.id,
             userName: authUser.user.email,
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
             attestationType: 'none',
             authenticatorSelection: {
                 residentKey: 'required',
-                userVerification: 'required',
+                userVerification: 'preferred',
             },
         });
 
@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
             csrfToken,
             expiresIn: WEBAUTHN_CHALLENGE_TTL_SECONDS,
         });
-    } catch {
-        return NextResponse.json({ error: 'Unable to generate registration options' }, { status: 400 });
+    } catch (error) {
+        console.error('WebAuthn register options failed', error);
+        return NextResponse.json({ error: 'Unable to generate registration options' }, { status: 500 });
     }
 }

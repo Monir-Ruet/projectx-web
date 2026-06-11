@@ -11,8 +11,8 @@ import type {
 export const WEBAUTHN_CSRF_HEADER = 'x-webauthn-csrf';
 export const WEBAUTHN_CHALLENGE_TTL_SECONDS = 120;
 
-const WEBAUTHN_JWT_AUDIENCE = 'projectx-webauthn';
-const WEBAUTHN_JWT_ISSUER = 'projectx-web';
+const WEBAUTHN_JWT_AUDIENCE = process.env.WEBAUTHN_CHALLENGE_AUDIENCE || 'projectx-webauthn';
+const WEBAUTHN_JWT_ISSUER = process.env.WEBAUTHN_CHALLENGE_ISSUER || 'projectx-web';
 
 function compareTokenValue(left: string, right: string): boolean {
     const leftBuffer = Buffer.from(left);
@@ -26,9 +26,9 @@ function compareTokenValue(left: string, right: string): boolean {
 }
 
 function getChallengeSecret(): string {
-    const secret = process.env.WEBAUTHN_CHALLENGE_SECRET || process.env.JWT_SECRET;
+    const secret = process.env.WEBAUTHN_CHALLENGE_SECRET;
     if (!secret) {
-        throw new Error('Missing WEBAUTHN_CHALLENGE_SECRET/JWT_SECRET');
+        throw new Error('Missing WEBAUTHN_CHALLENGE_SECRET');
     }
 
     return secret;
@@ -63,7 +63,7 @@ export function assertTrustedOrigin(req: NextRequest, expectedOrigin: string): v
     }
 
     const fetchSite = req.headers.get('sec-fetch-site');
-    if (fetchSite && !['same-origin', 'same-site', 'none'].includes(fetchSite)) {
+    if (fetchSite && !['same-origin', 'none'].includes(fetchSite)) {
         throw new Error('Cross-site request blocked');
     }
 }
