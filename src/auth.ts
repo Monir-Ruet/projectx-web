@@ -16,6 +16,12 @@ export const authConfig: NextAuthConfig = {
         strategy: "jwt",
     },
 
+    logger: process.env.NODE_ENV === "production" ? {
+        error() { },
+        warn() { },
+        debug() { },
+    } : undefined,
+
     providers: [
         Google,
         GitHub,
@@ -34,7 +40,6 @@ export const authConfig: NextAuthConfig = {
                 if (request.access_token && request.refresh_token) {
                     accessTokenResponse = { access_token: request.access_token, refresh_token: request.refresh_token };
                 } else {
-                    console.log("Using credentials for authentication");
                     accessTokenResponse = await signInWithCredentials({
                         email: request.email,
                         password: request.password,
