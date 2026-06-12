@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
-import { is_authenticated, me, refresh, signInWithCredentials, signInWithProvider, verifyPassKey } from "@/services/account"
+import { is_authenticated, me, refresh, signInWithCredentials, signInWithProvider } from "@/services/account"
 import GitHub from "next-auth/providers/github"
 
 export const authConfig: NextAuthConfig = {
@@ -24,19 +24,21 @@ export const authConfig: NextAuthConfig = {
             credentials: {
                 email: {},
                 password: {},
-                passkeyToken: {},
+                access_token: {},
+                refresh_token: {},
             },
 
             async authorize(credentials) {
                 let accessTokenResponse;
-                const request = credentials as { email: string; password: string, passkeyToken?: string }
-                if (request.passkeyToken) {
-                    accessTokenResponse = await verifyPassKey(request.passkeyToken);
+                const request = credentials as { email: string; password: string, access_token?: string; refresh_token?: string };
+                if (request.access_token && request.refresh_token) {
+                    accessTokenResponse = { access_token: request.access_token, refresh_token: request.refresh_token };
                 } else {
+                    console.log("Using credentials for authentication");
                     accessTokenResponse = await signInWithCredentials({
                         email: request.email,
                         password: request.password,
-                    })
+                    });
                 }
 
                 if (!accessTokenResponse) return null;
@@ -64,7 +66,7 @@ export const authConfig: NextAuthConfig = {
                     email: user.email!,
                     name: user.name!,
                     image: user.image!,
-                    account_id: user.id,
+                    account_id: account.providerAccountId,
                 })
 
                 if (!token_response) return false

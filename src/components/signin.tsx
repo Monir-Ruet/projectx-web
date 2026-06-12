@@ -4,9 +4,8 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
-import { AlertTriangleIcon, Key } from "lucide-react"
+import { AlertTriangleIcon, KeyIcon } from "lucide-react"
 import { signIn } from "next-auth/react"
-import { startAuthentication } from "@simplewebauthn/browser"
 import { useState } from "react"
 import { useRouter } from "next/navigation";
 import { signInSchema, signInZodSchema } from "@/schemas/account"
@@ -28,6 +27,10 @@ import {
     FieldSeparator,
 } from "@/components/ui/field"
 import Link from "next/link"
+import { Base64 } from "js-base64"
+import { reqwest } from "@/lib/fetch"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "./ui/input-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 export function SignInForm({
     className,
@@ -62,36 +65,68 @@ export function SignInForm({
 
     const handlePassKeySignin = async () => {
         try {
-            const optionsRes = await fetch('/api/auth/webauthn/login/options', {
+            const res = await reqwest('/api/auth/webauthn/login/options?email=' + signInForm.getValues('email'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
             });
-            if (!optionsRes.ok) throw new Error('Failed to fetch authentication options');
-            const options = await optionsRes.json();
 
-            const assertionResponse = await startAuthentication(options.options);
-            const verificationRes = await fetch('/api/auth/webauthn/login/verify', {
+            if (!res.ok)
+                throw new Error('Failed to fetch authentication options');
+
+            const credentialRequestOptions = await res.json();
+
+            const publicKey = credentialRequestOptions.options.publicKey;
+
+            publicKey.challenge = Base64.toUint8Array(publicKey.challenge);
+
+            publicKey.allowCredentials?.forEach(
+                (credential: { id: string | Uint8Array }) => {
+                    if (typeof credential.id === 'string') {
+                        credential.id = Base64.toUint8Array(credential.id);
+                    }
+                }
+            );
+
+            const assertion = await navigator.credentials.get({
+                publicKey,
+                mediation: "required"
+            });
+
+            if (!assertion)
+                throw new Error('Authentication failed');
+
+            const pkc = assertion as PublicKeyCredential;
+            const response = pkc.response as AuthenticatorAssertionResponse;
+
+            const signInResult = await reqwest('/api/auth/webauthn/login/verify', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    assertionResponse,
-                    challengeToken: options.challengeToken,
+                    auth: {
+                        id: pkc.id,
+                        rawId: Base64.fromUint8Array(new Uint8Array(pkc.rawId), true),
+                        type: pkc.type,
+                        response: {
+                            authenticatorData: Base64.fromUint8Array(new Uint8Array(response.authenticatorData), true),
+                            clientDataJSON: Base64.fromUint8Array(new Uint8Array(response.clientDataJSON), true),
+                            signature: Base64.fromUint8Array(new Uint8Array(response.signature), true),
+                            userHandle: response.userHandle ? Base64.fromUint8Array(new Uint8Array(response.userHandle), true) : null
+                        }
+                    },
+                    state_token: credentialRequestOptions.state_token,
                 }),
             });
 
-            if (!verificationRes.ok) {
+            if (!signInResult.ok) {
                 throw new Error('Failed to verify authentication');
             }
 
-            const { verified, passkeyToken } = await verificationRes.json();
-            if (verified) {
-                await signIn("credentials", { passkeyToken, redirect: false });
-                router.push("/");
-            } else {
-                throw new Error('Authentication not verified');
-            }
+            const { access_token, refresh_token } = await signInResult.json();
+            await signIn("credentials", { access_token, refresh_token, redirect: false });
+
+            router.push("/");
+            return true;
         } catch {
             setMessage("Authentication failed. Please try again.");
+            return false;
         }
     };
 
@@ -117,13 +152,6 @@ export function SignInForm({
                                         <Image src={"/github.svg"} width={20} height={20} alt="github" />
                                         Github
                                     </Button>
-                                    <Button variant="outline" type="button" onClick={(e) => {
-                                        e.preventDefault();
-                                        handlePassKeySignin()
-                                    }}>
-                                        <Key className="w-5 h-5" />
-                                        Passkey
-                                    </Button>
                                 </div>
                             </Field>
 
@@ -145,13 +173,27 @@ export function SignInForm({
 
                             <Field>
                                 <FieldLabel htmlFor="email">Email</FieldLabel>
-                                <Input
-                                    {...signInForm.register("email")}
-                                    id="email"
-                                    type="text"
-                                    required
-                                    className="rounded-sm p-5"
-                                />
+                                <InputGroup className="rounded-sm py-5">
+                                    <InputGroupInput
+                                        {...signInForm.register("email")}
+                                        id="email"
+                                        type="text"
+                                        required
+                                        autoComplete="username webauthn" />
+                                    <InputGroupAddon align="inline-end">
+                                        <Tooltip>
+                                            <TooltipTrigger render={
+                                                <InputGroupButton variant="secondary" onClick={handlePassKeySignin}>
+                                                    <KeyIcon />
+                                                </InputGroupButton>} />
+                                            <TooltipContent>
+                                                <p>Sign in with Passkey</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+
+
+                                    </InputGroupAddon>
+                                </InputGroup>
                             </Field>
                             <Field>
                                 <div className="flex items-center">
@@ -169,8 +211,8 @@ export function SignInForm({
                                 />
                             </Field>
                             <Field>
-                                <Button type="submit" disabled={loading}>
-                                    Login{ }
+                                <Button type="submit" disabled={loading} className="p-5 text-md font-bold">
+                                    Sign In
                                 </Button>
                                 <FieldDescription className="text-center">
                                     Don&apos;t have an account? <Link href="/signup" className="text-primary hover:underline">

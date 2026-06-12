@@ -25,27 +25,4 @@ declare module "user" {
         image: string
         account_id: string
     }
-
-    export interface ChallengeRequest {
-        user_id: string
-        challenge: string
-    }
-
-    export interface WebAuthnChallenge {
-        user_id: string
-        challenge: string,
-        created_at: Date,
-        expires_at: Date,
-    }
-
-    export interface PassKey {
-        id?: string,
-        credential_id: string,
-        public_key: string,
-        counter?: number,
-        device_type?: string,
-        backed_up?: boolean,
-        transports?: string,
-        user_id?: string
-    }
 }

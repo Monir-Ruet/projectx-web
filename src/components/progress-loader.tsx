@@ -27,6 +27,7 @@ export default function TopLoader() {
         const originalReplace = router.replace;
         const originalBack = router.back;
 
+        // eslint-disable-next-line react-hooks/immutability
         router.push = (...args: Parameters<typeof router.push>) => {
             start();
             return originalPush(...args);
