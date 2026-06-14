@@ -5,8 +5,16 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
+  CONTAINER_APP_NAME: projectx-web-dev
+  RESOURCE_GROUP: orionexx
+  CONTAINER_APP_ENVIRONMENT: env
+  LOCATION: eastasia
 
 jobs:
   build:
@@ -31,7 +39,119 @@ jobs:
         with:
           context: .
           push: true
-          tags: docker.io/monir81/projectx_web_app:latest
+          tags: docker.io/monir81/projectx_web_app:${{ github.sha }}
           file: Dockerfile
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build]
+    environment: dev
+    if: success()
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          enable-AzPSSession: true
+
+      - name: Deploy to Azure Container Apps
+        run: |
+          # Check if container app exists
+          if az containerapp show --name ${{ env.CONTAINER_APP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} 2>/dev/null; then
+              echo "Updating existing container app..."
+              az containerapp update \
+                --name ${{ env.CONTAINER_APP_NAME }} \
+                --resource-group ${{ env.RESOURCE_GROUP }} \
+                --image docker.io/monir81/projectx_web_app:${{ github.sha }} \
+                --set-env-vars \
+                  AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
+                  AUTH_GOOGLE_ID="${{ secrets.AUTH_GOOGLE_ID }}" \
+                  AUTH_GOOGLE_SECRET="${{ secrets.AUTH_GOOGLE_SECRET }}" \
+                  AUTH_GITHUB_ID="${{ secrets.AUTH_GITHUB_ID }}" \
+                  AUTH_GITHUB_SECRET="${{ secrets.AUTH_GITHUB_SECRET }}" \
+                  API_BASE_URL="${{ secrets.API_BASE_URL }}" \
+                  JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                  NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}" \
+                  AUTH_TRUST_HOST="${{ secrets.AUTH_TRUST_HOST }}"
+          else
+              echo "Creating new container app..."
+              # Ensure environment exists
+              if ! az containerapp env show --name ${{ env.CONTAINER_APP_ENVIRONMENT }} --resource-group ${{ env.RESOURCE_GROUP }} 2>/dev/null; then
+                  az containerapp env create \
+                    --name ${{ env.CONTAINER_APP_ENVIRONMENT }} \
+                    --resource-group ${{ env.RESOURCE_GROUP }} \
+                    --location ${{ env.LOCATION }}
+              fi
+
+              # Create container app with environment variables
+              az containerapp create \
+                --name ${{ env.CONTAINER_APP_NAME }} \
+                --resource-group ${{ env.RESOURCE_GROUP }} \
+                --environment ${{ env.CONTAINER_APP_ENVIRONMENT }} \
+                --image docker.io/monir81/projectx_web_app:${{ github.sha }} \
+                --target-port 3000 \
+                --ingress external \
+                --cpu 0.5 \
+                --memory 1.0Gi \
+                --min-replicas 1 \
+                --max-replicas 10 \
+                --env-vars \
+                  AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
+                  AUTH_GOOGLE_ID="${{ secrets.AUTH_GOOGLE_ID }}" \
+                  AUTH_GOOGLE_SECRET="${{ secrets.AUTH_GOOGLE_SECRET }}" \
+                  AUTH_GITHUB_ID="${{ secrets.AUTH_GITHUB_ID }}" \
+                  AUTH_GITHUB_SECRET="${{ secrets.AUTH_GITHUB_SECRET }}" \
+                  API_BASE_URL="${{ secrets.API_BASE_URL }}" \
+                  JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+                  NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}" \
+                  AUTH_TRUST_HOST="${{ secrets.AUTH_TRUST_HOST }}"
+          fi
+
+      - name: Verify Deployment
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+
+          # Get the container app URL
+          APP_URL=$(az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv)
+
+          echo "✅ Container App deployed successfully!"
+          echo "📍 URL: https://$APP_URL"
+
+          # Health check (optional - adjust endpoint as needed)
+          if curl -f -k https://$APP_URL/api/health --max-time 10; then
+              echo "✅ Health check passed!"
+          else
+              echo "⚠️ Health check failed, but deployment completed"
+          fi
+
+      - name: Get Container App URL
+        run: |
+          az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv
+
+      - name: Show deployment details
+        run: |
+          echo "=== Deployment Details ==="
+          az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "{ProvisioningState:properties.provisioningState, LatestRevision:properties.latestRevisionName, FQDN:properties.configuration.ingress.fqdn}" \
+            --output table
+
+      - name: Azure Logout
+        if: always()
+        run: az logout
