@@ -3,7 +3,6 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { ThemeWrapper } from "@/components/theme-wrapper";
 import { SessionProvider } from "next-auth/react";
-import { AuthGuard } from "@/components/auth-guard";
 import { Toaster } from "sonner";
 import ProgressLoader from "@/components/progress-loader";
 
@@ -31,7 +30,6 @@ export default function RootLayout({
                 <ProgressLoader />
                 <ThemeWrapper>
                     <SessionProvider>
-                        <AuthGuard />
                         {children}
                     </SessionProvider>
                 </ThemeWrapper>

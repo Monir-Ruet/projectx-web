@@ -124,6 +124,8 @@ export const authConfig: NextAuthConfig = {
             if (!newMe)
                 return {
                     ...token,
+                    accessToken: undefined,
+                    refreshToken: undefined,
                     error: "RefreshAccessTokenError",
                 }
 

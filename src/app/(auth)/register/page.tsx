@@ -63,8 +63,20 @@ export default function RegisterPage() {
             } else {
                 throw new Error('Registration verification failed');
             }
-        } catch {
-            toast.error('An error occurred during registration.');
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                if (err.name === 'InvalidStateError') {
+                    toast.error('This authenticator is already registered with your account.');
+                } else if (err.name === 'NotAllowedError') {
+                    toast.error('Registration cancelled or authenticator not found.');
+                } else if (err.name === 'SecurityError') {
+                    toast.error('Security error - please check your connection and try again.');
+                } else {
+                    toast.error(err.message || 'An error occurred during registration.');
+                }
+            } else {
+                toast.error('An error occurred during registration.');
+            }
         } finally {
             setLoading(false);
         }
